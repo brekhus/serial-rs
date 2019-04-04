@@ -68,9 +68,12 @@ impl TTYPort {
             timeout: Duration::from_millis(100),
         };
 
-        // get exclusive access to device
-        if let Err(err) = ioctl::tiocexcl(port.fd) {
-            return Err(super::error::from_io_error(err));
+        #[cfg(not(feature = "no-exclusive-tty"))]
+        {
+            // get exclusive access to device
+            if let Err(err) = ioctl::tiocexcl(port.fd) {
+                return Err(super::error::from_io_error(err));
+            }
         }
 
         // clear O_NONBLOCK flag
@@ -109,8 +112,11 @@ impl TTYPort {
 
 impl Drop for TTYPort {
     fn drop(&mut self) {
-        #![allow(unused_must_use)]
-        ioctl::tiocnxcl(self.fd);
+        #[cfg(not(feature = "no-exclusive-tty"))]
+        {
+            #![allow(unused_must_use)]
+            ioctl::tiocnxcl(self.fd);
+        }
 
         unsafe {
             libc::close(self.fd);
